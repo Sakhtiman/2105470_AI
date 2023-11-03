@@ -24,4 +24,9 @@ target_im = imageio.imread('coke.jpg')
 target_im = numpy.asarray(target_im/255, dtype=numpy.float)
 <img width="262" alt="image" src="https://github.com/Sakhtiman/2105470_AI/assets/134630688/07c31a60-d801-4aee-b492-76e5cc0d7fc0">
 
+![image](https://github.com/Sakhtiman/2105470_AI/assets/134630688/62f26f1c-4c3a-4b5c-abba-23ce60b2f8f3)
+
+
+
+
 
