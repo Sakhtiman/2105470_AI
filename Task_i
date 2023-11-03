@@ -1,0 +1,103 @@
+import os
+import sys
+import numpy
+import scipy.misc
+import itertools
+import GARI
+
+def coke(img_arr):
+    chromosome = numpy.reshape(img_arr, newshape=(functools.reduce(operator.mul, img_arr.shape)))
+    return chromosome
+
+def chromosome2img(chromosome, img_shape):
+    img_arr = numpy.reshape(chromosome, newshape=img_shape)
+    return img_arr
+
+def initial_population(img_shape, n_individuals=8):
+    init_population = numpy.empty(shape=(n_individuals, functools.reduce(operator.mul, img_shape)), dtype=numpy.uint8)
+
+    for indv_num in range(n_individuals):
+        # Randomly generate initial population chromosome gene values.
+        init_population[indv_num, :] = numpy.random.random(
+            functools.reduce(operator.mul, img_shape)) * 256
+
+    return init_population
+
+def fitness_fun(target_chrom, indiv_chrom):
+    quality = numpy.mean(numpy.abs(target_chrom - indiv_chrom))
+    quality = numpy.sum(target_chrom) - quality
+    return quality
+
+def cal_pop_fitness(target_chrom, pop):
+    qualities = numpy.zeros(pop.shape[0])
+    for indv_num in range(pop.shape[0]):
+        qualities[indv_num] = fitness_fun(target_chrom, pop[indv_num, :])
+    return qualities
+
+def select_mating_pool(pop, qualities, num_parents):
+    parents = numpy.empty((num_parents, pop.shape[1]), dtype=numpy.uint8)
+    for parent_num in range(num_parents):
+        max_qual_idx = numpy.where(qualities == numpy.max(qualities))
+        max_qual_idx = max_qual_idx[0][0]
+        parents[parent_num, :] = pop[max_qual_idx, :]
+        qualities[max_qual_idx] = -1
+    return parents
+
+def crossover(parents, img_shape, n_individuals=8):
+    new_population = numpy.empty(shape=(n_individuals, functools.reduce(operator.mul, img_shape)), dtype=numpy.uint8)
+
+    # Previous parents (best elements).
+    new_population[0:parents.shape[0], :] = parents
+    num_newly_generated = n_individuals - parents.shape[0]
+    parents_permutations = list(itertools.permutations(iterable=numpy.arange(0, parents.shape[0]), r=2))
+    selected_permutations = random.sample(range(len(parents_permutations)), num_newly_generated)
+
+    comb_idx = parents.shape[0]
+    for comb in range(len(selected_permutations)):
+        selected_comb_idx = selected_permutations[comb]
+        selected_comb = parents_permutations[selected_comb_idx]
+
+        # Applying crossover by exchanging half of the genes between two parents.
+        half_size = numpy.int32(new_population.shape[1] / 2)
+        new_population[comb_idx + comb, 0:half_size] = parents[selected_comb[0], 0:half_size]
+        new_population[comb_idx + comb, half_size:] = parents[selected_comb[1], half_size:]
+
+    return new_population
+
+def mutation(population, num_parents_mating, mut_percent):
+    for idx in range(num_parents_mating, population.shape[0]):
+        rand_idx = numpy.uint32(numpy.random.random(size=numpy.uint32(mut_percent / 100 * population.shape[1])) * population.shape[1])
+        new_values = numpy.uint8(numpy.random.random(size=rand_idx.shape[0]) * 256)
+        population[idx, rand_idx] = new_values
+    return population
+
+def main():
+    target_im = scipy.misc.imread('coke.jpg')
+    target_chromosome = coke(target_im)
+    sol_per_pop = 8
+    num_parents_mating = 4
+    mutation_percent = 0.01
+    num_possible_permutations = len(list(itertools.permutations(iterable=numpy.arange(0, num_parents_mating), r=2))
+    num_required_permutations = sol_per_pop - num_possible_permutations
+
+    if num_required_permutations > num_possible_permutations:
+        print("\n*Inconsistency in the selected population size or number of parents.*")
+        print("Impossible to meet these criteria.\n")
+        sys.exit(1)
+
+    new_population = initial_population(img_shape=target_im.shape, n_individuals=sol_per_pop)
+
+    for iteration in range(10000):
+        qualities = cal_pop_fitness(target_chromosome, new_population)
+        print('Quality : ', numpy.max(qualities), ', Iteration : ', iteration)
+        parents = select_mating_pool(new_population, qualities, num_parents_mating)
+        new_population = crossover(parents, target_im.shape, n_individuals=sol_per_pop)
+        new_population = mutation(population=new_population, num_parents_mating=num_parents_mating, mut_percent=mutation_percent)
+
+        GARI.save_images(iteration, qualities, new_population, target_im.shape, save_point=500, save_dir=os.path.join(os.curdir, 'output'))
+
+    # Display the final generation
+    GARI.show_indivs(new_population, target_im.shape)
+
+if __name__ == "__main__":
+    main()
